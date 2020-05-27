@@ -131,6 +131,7 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      }
      listWidth += bH
   }
+
   If (listRows=0 && DropListMode!=1)
      dropListu := ""
   Else If (listRows=0 && DropListMode=1)
