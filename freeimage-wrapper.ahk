@@ -1,12 +1,14 @@
 ﻿; Original Date: 2012-03-29
 ; Original Author: linpinger
 ; Original URL : http://www.autohotkey.net/~linpinger/index.html
-; This version available on Github: https://github.com/marius-sucan/Quick-Picto-Viewer
-
+; New version by: Marius Șucan
+; available on Github: https://github.com/marius-sucan/Quick-Picto-Viewer
+; updated through-out 2019 and 2020
+;
 ; Change log:
 ; =============================
 ; 21th of September 2019 by Marius Șucan
-; - Implemented additional functions.
+; - Implemented additional functions
 ;
 ; 11th of August 2019 by Marius Șucan
 ; - Added ConvertFIMtoPBITMAP() and ConvertPBITMAPtoFIM() functions
@@ -15,7 +17,7 @@
 ; - Bug fixes and more in-line comments/information
 ;
 ; 6th of August 2019 by Marius Șucan
-; - It now works with FreeImage v3.18 and AHK_L v1.1.30.
+; - It now works with FreeImage v3.18 and AHK_L v1.1.30+.
 ; - Added many new functions and cleaned up the code. Fixed bugs.
 
 FreeImage_FoxInit(isInit:=1) {
