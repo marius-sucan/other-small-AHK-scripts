@@ -17,7 +17,7 @@
 ;---------------------------------------------------------------
 ; Functions:
 ; SGDIPrint_EnumPrinters()            Get List of Printer Names
-; SGDIPrint_SetDefaultPrnter()        Sets default printer by name
+; SGDIPrint_SetDefaultPrinter()        Sets default printer by name
 ; SGDIPrint_GetDefaultPrinter()       Get default-Printer Name
 ; SGDIPrint_GetHDCfromPrinterName()   Get GDI DC based on Printer Name
 ; SGDIPrint_GetHDCfromPrintDlg()      Get GDI DC from user-dialog
@@ -30,6 +30,8 @@
 ; SGDIPrint_NextPage()                starts new page in the GDI-print-session
 ; SGDIPrint_EndDocument()             ends the GDI-print-session
 ; SGDIPrint_AbortDocument()           aborts the GDI-print-session
+; SGDIPrint_AbortPrinter()            it deletes a printer's spool file if the printer is configured for spooling.
+; SGDIPrint_OpenPrinterProperties() 
 ;-----------
 ; This edition no longer relies on global Vars.
 ; SGDIPrint_GetHDCfromPrinterName() and SGDIPrint_GetHDCfromPrintDlg()
@@ -258,11 +260,11 @@ SGDIPrint_GetHDCfromPrintDlg(hwndOwner) {
 
    VarSetCapacity(PRINTDIALOG_STRUCT, 0)
    ; Retrieve the size of the printable area in pixels:
-   SGDIPrint.HDC_Width  := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "UInt", 8)    ; HORZRES
+   SGDIPrint.HDC_Width  := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "UInt", 8)   ; HORZRES
    SGDIPrint.HDC_Height := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "UInt", 10)  ; VERTRES
 
    ; Retrieve the resolution of the printer in pixels/doots per inch:
-   SGDIPrint.HDC_xdpi := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "UInt",0x58) ; LOGPIXELSX
+   SGDIPrint.HDC_xdpi := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "UInt", 0x58) ; LOGPIXELSX
    SGDIPrint.HDC_ydpi := DllCall("Gdi32.dll\GetDeviceCaps", "Ptr", hDC, "UInt", 0x5A) ; LOGPIXELSY
 
    ; Retrieve paper physical dimensions and non-printable margins (offset). Values in «device units».
@@ -365,8 +367,35 @@ SGDIPrint_AbortDocument(hDC) {
   return
 }
 
-SGDIPrint_SetDefaultPrnter(pPrinterName) {
+SGDIPrint_SetDefaultPrinter(pPrinterName) {
    if !(DllCall("winspool.drv\SetDefaultPrinter", "Str", pPrinterName))
+      return 0
+   return 1
+}
+
+SGDIPrint_OpenPrinterProperties(pPrinterName, hwndParent) {
+  out := DllCall("Winspool.drv\OpenPrinter", "Ptr", &pPrinterName, "Ptr*", pPrinter, "Ptr", 0, "Ptr")
+  If !out
+     Return 0
+
+   if !(DllCall("winspool.drv\PrinterProperties", "Ptr", hwndParent, "Ptr", pPrinter))
+      return 0
+   return 1
+}
+
+SGDIPrint_AbortPrinter(pPrinterName) {
+  out := DllCall("Winspool.drv\OpenPrinter", "Ptr", &pPrinterName, "Ptr*", pPrinter, "Ptr", 0, "Ptr")
+  If !out
+     Return 0
+
+   if !(DllCall("winspool.drv\AbortPrinter", "Ptr", pPrinter))
+      return 0
+   return 1
+}
+
+
+SGDIPrint_ConnectToPrinterDlg(hwndParent) {
+   if !(DllCall("winspool.drv\ConnectToPrinterDlg", "Ptr", hwndParent, "uint", 0))
       return 0
    return 1
 }
