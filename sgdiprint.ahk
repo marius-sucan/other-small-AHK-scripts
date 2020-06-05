@@ -2,7 +2,7 @@
 ; Simple GDI-Printing library for AHK_L (32bit & 64bit compatible)
 ; found on : https://www.autohotkey.com/boards/viewtopic.php?f=6&t=68403
 ; by Zed_Gecko
-; updated by Marius Șucan on jeudi 4 juin 2020.
+; updated by Marius Șucan on vendredi 5 juin 2020.
 ;
 ; this edition relies on GDI+ library compilation
 ; https://github.com/marius-sucan/AHK-GDIp-Library-Compilation
@@ -10,28 +10,29 @@
 ; thanks to: engunneer, Lexikos, closed, controlfreak, just me, fincs, tic
 ; Requires tics GDI+ Library unless you use bare GDI printing (means printing directly on the printer-DC)
 ; http://www.autohotkey.com/forum/viewtopic.php?t=32238
-; with GDI+ you can either draw directly on the printer (SGDIPrint_printerfriendlyGraphicsFromHDC) or
+; with GDI+ you can either draw directly on the printer (SGDIPrint_GraphicsFromHDC) or
 ; draw on a matching bitmap first (SGDIPrint_GetMatchingBitmap) which you copy later to the printer,
 ; which allows to  preview the print and to save it to file 
 ; but it uses more resources & time, and the printing result may differ from "direct"-printing
 ;---------------------------------------------------------------
 ; Functions:
 ; SGDIPrint_EnumPrinters()            Get List of Printer Names
-; SGDIPrint_SetDefaultPrinter()        Sets default printer by name
+; SGDIPrint_SetDefaultPrinter()       Sets default printer by name
 ; SGDIPrint_GetDefaultPrinter()       Get default-Printer Name
 ; SGDIPrint_GetHDCfromPrinterName()   Get GDI DC based on Printer Name
 ; SGDIPrint_GetHDCfromPrintDlg()      Get GDI DC from user-dialog
 ; SGDIPrint_GetMatchingBitmap()       Get a GDI+ Bitmap matching to print-out size
 ; SGDIPrint_BeginDocument()           starts the GDI-print-session
-; SGDIPrint_printerfriendlyGraphicsFromBitmap() creates GDI+ graphic 
-; SGDIPrint_CopyBitmapToPrinterHDC()            copies a GDI+ Bitmap to a matching printer GDI DC
-; SGDIPrint_printerfriendlyGraphicsFromHDC()    creates GDI+ graphic 
+; SGDIPrint_GraphicsFromBitmap()      creates GDI+ graphic 
+; SGDIPrint_CopyBitmapToPrinterHDC()  copies a GDI+ Bitmap to a matching printer GDI DC
+; SGDIPrint_GraphicsFromHDC()         creates GDI+ graphic 
 ; SGDIPrint_TextFillUpRect()          fills up a rectangle on a GDI+ graphic with text
 ; SGDIPrint_NextPage()                starts new page in the GDI-print-session
 ; SGDIPrint_EndDocument()             ends the GDI-print-session
 ; SGDIPrint_AbortDocument()           aborts the GDI-print-session
 ; SGDIPrint_AbortPrinter()            it deletes a printer's spool file if the printer is configured for spooling.
 ; SGDIPrint_OpenPrinterProperties() 
+; SGDIPrint_ConnectToPrinterDlg()
 ;-----------
 ; This edition no longer relies on global Vars.
 ; SGDIPrint_GetHDCfromPrinterName() and SGDIPrint_GetHDCfromPrintDlg()
@@ -307,18 +308,15 @@ SGDIPrint_BeginDocument(hDC, Document_Name) {
   return out
 }
 
-; SGDIPrint_printerfriendlyGraphicsFromBitmap returns a GDI+ graphic object with printerfriendly preformatting
-SGDIPrint_printerfriendlyGraphicsFromBitmap(pBitmap) {
-  G := Gdip_GraphicsFromImage(pBitmap)
-  Gdip_SetPageUnit(G, 2)
-  Gdip_SetSmoothingMode(G, 4) 
-  Gdip_SetInterpolationMode(G, 7)
+; SGDIPrint_GraphicsFromBitmap returns a GDI+ graphic object with printerfriendly preformatting
+SGDIPrint_GraphicsFromBitmap(pBitmap) {
+  G := Gdip_GraphicsFromImage(pBitmap, 7, 4, 2)
   return G
 }
 
 ; SGDIPrint_CopyBitmapToPrinterHDC copies a GDI+ Bitmap on a matching Printer HDC
 SGDIPrint_CopyBitmapToPrinterHDC(pBitmap, hDC, Width, Height) {
-  PG := SGDIPrint_printerfriendlyGraphicsFromHDC(hDC)
+  PG := SGDIPrint_GraphicsFromHDC(hDC)
   If PG
   {
      Gdip_DrawImage(PG, pBitmap, 0, 0, Width, Height)
@@ -327,19 +325,11 @@ SGDIPrint_CopyBitmapToPrinterHDC(pBitmap, hDC, Width, Height) {
   return
 }
 
-; SGDIPrint_printerfriendlyGraphicsFromHDC returns a GDI+ graphic object with printerfriendly preformatting
-SGDIPrint_printerfriendlyGraphicsFromHDC(hDC) {
-  G := Gdip_GraphicsFromHDC(hDC)
-  ; The default unit of measurement in this case appears to be UnitDisplay.
-  ; Change it to UnitPixel, or our drawing will be off.
-  If G
-  {
-    Gdip_SetPageUnit(G, 2)
-    ; Set the smoothing mode to antialias = 4 to make shapes appear smother (only used for vector drawing and filling)
-    Gdip_SetSmoothingMode(G, 4)
-    ; Interpolation mode has been set to HighQualityBicubic = 7
-    Gdip_SetInterpolationMode(G, 7)
-  }
+; SGDIPrint_GraphicsFromHDC returns a GDI+ graphic object with printerfriendly preformatting
+SGDIPrint_GraphicsFromHDC(hDC) {
+  ; The default unit of measurement when creating Graphics from a DC is UnitDisplay.
+  ; It must be UnitPixel, or our drawing will be off.
+  G := Gdip_GraphicsFromHDC(hDC, "", 7, 4, 2)
   return G
 }
 
