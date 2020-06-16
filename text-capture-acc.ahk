@@ -1557,6 +1557,13 @@ UpdateAccInfo(Acc, ChildId, Obj_Path="") {
   Global uia := UIA_Interface()
   Global Element := uia.ElementFromPoint()
   
+  MouseGetPos, , , WinID, hChild, 3
+  If (WinID=hMainOSD)
+  {
+     ; DestroyMainGui()
+     Return
+  }
+
   MouseGetPos, , , id, controla, 2
   ControlGetText, NewCtrlTextVar , , ahk_id %controla%
   CtrlTextVar := StrLen(NewCtrlTextVar)>1 || !MainGuiVisible ? NewCtrlTextVar : CtrlTextVar
@@ -1589,6 +1596,8 @@ UpdateAccInfo(Acc, ChildId, Obj_Path="") {
      NewInputMsg := AccViewName " " AccViewValue
   StringReplace, NewInputMsg, NewInputMsg, %A_TAB%, %A_SPACE%, All
   StringReplace, NewInputMsg, NewInputMsg, %A_SPACE%%A_SPACE%, %A_SPACE%, All
+  ; NewInputMsg .= GetMenu(WinID)
+
   If (NewInputMsg!=InputMsg || AccTextCaptureActive=0)
   {
      CreateMainGUI(NewInputMsg)
@@ -2688,3 +2697,28 @@ HRESULT SafeArrayDestroy(
   _In_  SAFEARRAY *psa
 );
 */
+
+GetMenu(hWnd) {
+  SendMessage, 0x1E1, 0, 0, , ahk_id %hWnd%  ;  MN_GETHMENU
+  hMenu := ErrorLevel
+  If !hMenu || (hMenu + 0 = "")
+     Return
+  Return RTrim(GetMenuText(hMenu))
+}
+
+GetMenuText(hMenu, child = 0) {
+  Loop, % DllCall("GetMenuItemCount", "Ptr", hMenu)
+  {
+    idx := A_Index - 1
+    nSize++ := DllCall("GetMenuString", "Ptr", hMenu, "int", idx, "Uint", 0, "int", 0, "Uint", 0x400)   ;  MF_BYPOSITION
+    nSize := (nSize * (A_IsUnicode ? 2 : 1))
+    VarSetCapacity(sString, nSize)
+    DllCall("GetMenuString", "Ptr", hMenu, "int", idx, "str", sString, "int", nSize, "Uint", 0x400)   ;  MF_BYPOSITION
+    idn := DllCall("GetMenuItemID", "Ptr", hMenu, "int", idx)
+    hSubMenu := DllCall("GetSubMenu", "Ptr", hMenu, "int", idx)
+    isSubMenu := (idn=-1 && hSubMenu) ? 1 : 0
+    If isSubMenu
+       string .= " [sub-menu]" ; GetMenuText(hSubMenu, ++child), --child
+  }
+  Return string
+}
