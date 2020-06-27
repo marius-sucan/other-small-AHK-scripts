@@ -69,8 +69,8 @@
  , ThisFile               := A_ScriptName
 
 ; Release info
- , Version                := "0.6"
- , ReleaseDate            := "2018 / 10 / 26"
+ , Version                := "0.7"
+ , ReleaseDate            := "2020 / 06 / 27"
  , ScriptInitialized, FirstRun := 1
 
 ; Check if INIT previously failed or if KP is running and then load settings.
@@ -99,6 +99,7 @@ Global Debug := 0    ; for testing purposes
  , lastMsgDisplayied := ""
  , PrefOpen := 0
  , FontList := []
+ , captureFocusedTab := A_TickCount
  , LargeUIfontValue := 13
  , InstKBDsWinOpen, CurrentTab, AnyWindowOpen := 0
  , PreviewWindowText := "Preview " Lola "window... " Lola2
@@ -112,7 +113,7 @@ Global Debug := 0    ; for testing purposes
     |PadIns|PadLeft|PadRight|PadAdd|PadSub|PadMult|PadPage_Down|PadPage_Up|PadUp|PadDown|Sleep
     |Volume_Mute|Volume_Up|Volume_Down|WheelUp|WheelDown|WheelLeft|WheelRight|[[ VK nnn ]]|[[ SC nnn ]]"
  , hMainOSD, ColorPickerHandles
- , hMain := A_ScriptHwnd
+ , hMain := A_ScriptHwnd, uia
  , CCLVO := "-E0x200 +Border -Hdr -Multi +ReadOnly Report AltSubmit gsetColors"
  , BaseURL := "http://marius.sucan.ro/media/files/blog/ahk-scripts/"
  , hWinMM := DllCall("kernel32\LoadLibraryW", "Str", "winmm.dll", "Ptr")
@@ -120,6 +121,7 @@ Global Debug := 0    ; for testing purposes
  , ForceUpdate := 0     ; this will be used when major changes require full update
 
 ; Initializations of the core components and functionality
+uia := UIA_Interface()
 
 Sleep, 5
 CreateGlobalShortcuts()
@@ -505,13 +507,15 @@ ToggleAccCaptureText() {
     If (AccTextCaptureActive=1)
     {
        CreateMainGUI("Text Capture activated")
+       SoundBeep , 900, 100
        SetTimer, GetAccInfo, 200, 50
     } Else
     {
        SetTimer, GetAccInfo, off
        CreateMainGUI("Text Capture deactivated")
+       SoundBeep , 300, 100
     }
-    Sleep, 1000
+    Sleep, 700
 }
 
 ToggleLargeFonts() {
@@ -1554,15 +1558,14 @@ GetAccInfo(skipVerification:=0) {
 
 UpdateAccInfo(Acc, ChildId, Obj_Path="") {
   Global InputMsg, AccViewName, AccViewValue, CtrlTextVar, NewCtrlTextVar
-  Global uia := UIA_Interface()
-  Global Element := uia.ElementFromPoint()
+  If (A_TickCount - captureFocusedTab<1250)
+     Element := uia.GetFocusedElement()
+  Else
+     Element := uia.ElementFromPoint()
   
   MouseGetPos, , , WinID, hChild, 3
   If (WinID=hMainOSD)
-  {
-     ; DestroyMainGui()
      Return
-  }
 
   MouseGetPos, , , id, controla, 2
   ControlGetText, NewCtrlTextVar , , ahk_id %controla%
@@ -1995,7 +1998,9 @@ class UIA_Interface extends UIA_Base {
     }
   }  
   GetFocusedElement() {
-    return UIA_Hr(DllCall(this.__Vt(8), "ptr",this.__Value, "ptr*",out))? new UIA_Element(out):
+    Try {
+      return UIA_Hr(DllCall(this.__Vt(8), "ptr",this.__Value, "ptr*",out))? new UIA_Element(out):
+    }
   }
   ;~ GetRootElementBuildCache   9
   ;~ ElementFromHandleBuildCache   10
@@ -2722,3 +2727,9 @@ GetMenuText(hMenu, child = 0) {
   }
   Return string
 }
+
+
+~Tab::
+~+Tab::
+   captureFocusedTab := A_TickCount
+Return
