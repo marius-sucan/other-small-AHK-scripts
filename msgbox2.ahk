@@ -51,11 +51,13 @@
    ;                   - 3 = to use a ListBox to display the options as a list that allows multiple options to be selected; the rows selected numbers are returned in Array.list , each separated by `f
    ;                   - in any case dropListu parameter must be given;
    ; - setWidth        - sets the desired width for the prompt message, checkbox edit field
+   ; - 2ndDropListu
+   ; - 2ndDropListMode
 
 Global MsgBox2InputHook, MsgBox2Result, MsgBox2hwnd
 
-MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=0, fontSize:=0, modalHwnd:="", ownerHwnd:="", checkBoxCaption:="", checkBoxState:=0, dropListu:="", editOptions:="", editDefaultLine:="", DropListMode:=0, setWidth:=0) {
-  Global UsrCheckBoxu, DropListuChoice, EditUserMsg, prompt, BoxIcon
+MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=0, fontSize:=0, modalHwnd:="", ownerHwnd:="", checkBoxCaption:="", checkBoxState:=0, dropListu:="", editOptions:="", editDefaultLine:="", DropListMode:=0, setWidth:=0, 2ndDropListu:=0, 2ndDropListMode:=0) {
+  Global UsrCheckBoxu, 2ndDropListuChoice, DropListuChoice, EditUserMsg, prompt, BoxIcon
   oCritic := A_IsCritical 
   Critical, off
 
@@ -138,7 +140,30 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
   Else If (listRows>10)
      listRows := 10
 
-  btnTotalWidth := max(btnTotalWidth, listWidth, setWidth)
+
+  2ndlistWidth := 1
+  2ndlistRows := 0
+  If 2ndDropListu
+  {
+     Loop, Parse, 2ndDropListu, `f
+     {
+        If A_LoopField
+        {
+           2ndlistRows++
+           listDim := GetMsgDimensions(A_LoopField, fontFace, fontSize, rMaxW, rMaxH, 1, doBold)
+           2ndlistWidth := max(listDim.w, listWidth, btnDim.w)
+        }
+     }
+     2ndlistWidth += bH
+  }
+  If (2ndlistRows=0 && 2ndDropListMode!=1)
+     2ndDropListu := ""
+  Else If (2ndlistRows=0 && 2ndDropListMode=1)
+     2ndlistRows := 10
+  Else If (2ndlistRows>10)
+     2ndlistRows := 10
+
+  btnTotalWidth := max(btnTotalWidth, listWidth, 2ndlistWidth, setWidth)
   If (btnCount=0 && StrLen(btnList)>0)
      btnCount := 1
 
@@ -155,9 +180,9 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      msgW := Abs(setWidth)
 
   If (DropListMode=1)
-     listWidth := msgW
+     2ndlistWidth := listWidth := msgW
   Else
-     listWidth := max(listWidth, btnTotalWidth)
+     2ndlistWidth := listWidth := max(listWidth, 2ndlistWidth, btnTotalWidth)
 
   msgH := msg.h - bH//2
   msgH := (msgH>rMaxH) ? "h" maxH : ""
@@ -168,7 +193,7 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
   If fontFace
      Gui, Font, %thisBold% Q4, %fontFace% 
 
-  If fontSize
+  If (fontSize>0)
      Gui, Font, s%fontSize% %thisBold% Q4
 
   iconFile := 0
@@ -182,7 +207,7 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      {
        iconFile := "imageres.dll", iconNum := 95
        SoundPlay, *32
-     } Else If (icon="warning" || icon="exclamation")
+     } Else If (icon="warning" || icon="alert" || icon="exclamation")
      {
        iconFile := "imageres.dll", iconNum := 80
        SoundPlay, *48
@@ -217,10 +242,10 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      } Else If (icon="file")
      {
        iconFile := "imageres.dll", iconNum := 15
-     } Else If (icon="audio-file")
+     } Else If (icon="audio-file" || icon="audio")
      {
        iconFile := "imageres.dll", iconNum := 126
-     } Else If (icon="image-file")
+     } Else If (icon="image-file" || icon="image")
      {
        iconFile := "imageres.dll", iconNum := 68
      } Else If (icon="folder")
@@ -287,7 +312,7 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      Gui, Add, Checkbox, xp y+%marginz% wp Checked%checkBoxState% vUsrCheckBoxu, %checkBoxCaption%
 
   multiSel := (DropListMode=3) ? 8 : " gMsgBox2ListBoxEvent "
-  If dropListu
+  If (dropListu || 2ndDropListu)
      Gui, +Delimiter`f
 
   If (dropListu && (DropListMode=2 || DropListMode=3))
@@ -302,6 +327,19 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      Gui, Add, ComboBox, xp y+%marginz% w%listWidth% vDropListuChoice, % dropListu
   Else If (dropListu && (DropListMode=2 || DropListMode=3))
      Gui, Add, ListBox, xp y+%marginz% r%listRows% w%listWidth% AltSubmit %multisel% vDropListuChoice, % dropListu
+
+  If (2ndDropListu && (2ndDropListMode=2 || 2ndDropListMode=3))
+  {
+     2ndDropListu := Chr(160) StrReplace(2ndDropListu, "`f", "`f" Chr(160))
+     2ndDropListu := StrReplace(2ndDropListu, "`f" Chr(160) "`f", "`f`f")
+  }
+
+  If (2ndDropListu && 2ndDropListMode=0)
+     Gui, Add, DropDownList, xp y+%marginz% w%2ndlistWidth% AltSubmit v2ndDropListuChoice, % 2ndDropListu
+  Else If (2ndDropListu && 2ndDropListMode=1)
+     Gui, Add, ComboBox, xp y+%marginz% w%2ndlistWidth% v2ndDropListuChoice, % 2ndDropListu
+  Else If (2ndDropListu && (2ndDropListMode=2 || 2ndDropListMode=3))
+     Gui, Add, ListBox, xp y+%marginz% r%2ndlistRows% w%2ndlistWidth% AltSubmit %2ndmultisel% v2ndDropListuChoice, % 2ndDropListu
 
   Loop, Parse, btnList, | ; list specified buttons
   {
@@ -323,8 +361,8 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
      Gui, Add, Button, gMsgBox2event x+0 w1 h1 Default, --
 
   Gui, Add, Text, xp yp w1 h1 BackgroundTrans,% A_Space
-  If ownerHwnd
-     Gui, +Owner%ownerHwnd%
+  If StrLen(ownerHwnd)>1
+     Try Gui, +Owner%ownerHwnd%
 
   If modalHwnd
      WinSet, Disable,, ahk_id %modalHwnd%
@@ -350,8 +388,10 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
   MsgBox2InputHook.Wait()
   r := []
   Sleep, 1
+  Gui, WinMsgBox: Default
   GuiControlGet, UsrCheckBoxu
   GuiControlGet, DropListuChoice
+  GuiControlGet, 2ndDropListuChoice
   GuiControlGet, EditUserMsg
   r.btn := StrReplace(MsgBox2Result, "&")
   If (MsgBox2Result="usr-dbl-clk")
@@ -359,6 +399,7 @@ MsgBox2(sMsg, title, btnList:=0, btnDefault:=1, icon:="", fontFace:="", doBold:=
 
   r.check := !checkBoxCaption ? 0 : UsrCheckboxu
   r.list := !dropListu ? 0 : DropListuChoice
+  r.2ndlist := !2ndDropListu ? 0 : 2ndDropListuChoice
   r.edit := !editOptions ? 0 : EditUserMsg
   If modalHwnd
      WinSet, Enable,, ahk_id %modalHwnd%
@@ -403,6 +444,7 @@ WatchMsgBox2Win() {
 }
 
 MsgBox2event(CtrlHwnd, GuiEvent, EventInfo) {
+  Gui, WinMsgBox: Default
   GuiControlGet, btnFocused, WinMsgBox: FocusV
   ControlGetText, btnText, , ahk_id %CtrlHwnd%
   If btnFocused
@@ -427,6 +469,7 @@ MsgBox2InputHookKeyDown(iHook, VK, SC) {
   If (hwnd!=MsgBox2hwnd)
      Return
 
+  Gui, WinMsgBox: Default
   GuiControlGet, btnText, WinMsgBox: FocusV
   keyPressed := GetKeyName(Format("vk{:x}sc{:x}", VK, SC))
   If (keyPressed="Escape" || keyPressed="f4")
@@ -646,6 +689,76 @@ GetStringSize(FontFace, fontSize, doBold, p_String, mustWrap, l_Width:=0) {
     Return result
 }
 
+Fnt_GetFontName(hFont:="") {
+    Static Dummy87890484
+          ,DEFAULT_GUI_FONT    :=17
+          ,HWND_DESKTOP        :=0
+          ,OBJ_FONT            :=6
+          ,MAX_FONT_NAME_LENGTH:=32     ;-- In TCHARS
+
+    ;-- If needed, get the handle to the default GUI font
+    if (DllCall("GetObjectType","Ptr",hFont)<>OBJ_FONT)
+        hFont:=DllCall("GetStockObject","Int",DEFAULT_GUI_FONT)
+
+    ;-- Select the font into the device context for the desktop
+    hDC      :=DllCall("GetDC","Ptr",HWND_DESKTOP)
+    old_hFont:=DllCall("SelectObject","Ptr",hDC,"Ptr",hFont)
+
+    ;-- Get the font name
+    VarSetCapacity(l_FontName,MAX_FONT_NAME_LENGTH*(A_IsUnicode ? 2:1))
+    DllCall("GetTextFace","Ptr",hDC,"Int",MAX_FONT_NAME_LENGTH,"Str",l_FontName)
+
+    ;-- Release the objects needed by the GetTextFace function
+    DllCall("SelectObject","Ptr",hDC,"Ptr",old_hFont)
+        ;-- Necessary to avoid memory leak
+
+    DllCall("ReleaseDC","Ptr",HWND_DESKTOP,"Ptr",hDC)
+
+    ;-- Return to sender
+    Return l_FontName
+}
+
+Fnt_GetFontSize(hFont:="") {
+    Static Dummy64998752
+
+          ;-- Device constants
+          ,HWND_DESKTOP:=0
+          ,LOGPIXELSY  :=90
+
+          ;-- Misc.
+          ,DEFAULT_GUI_FONT:=17
+          ,OBJ_FONT        :=6
+
+    ;-- If needed, get the handle to the default GUI font
+    if (DllCall("GetObjectType","Ptr",hFont)<>OBJ_FONT)
+        hFont:=DllCall("GetStockObject","Int",DEFAULT_GUI_FONT)
+
+    ;-- Select the font into the device context for the desktop
+    hDC      :=DllCall("GetDC","Ptr",HWND_DESKTOP)
+    old_hFont:=DllCall("SelectObject","Ptr",hDC,"Ptr",hFont)
+
+    ;-- Collect the number of pixels per logical inch along the screen height
+    l_LogPixelsY:=DllCall("GetDeviceCaps","Ptr",hDC,"Int",LOGPIXELSY)
+
+    ;-- Get text metrics for the font
+    VarSetCapacity(TEXTMETRIC,A_IsUnicode ? 60:56,0)
+    DllCall("GetTextMetrics","Ptr",hDC,"Ptr",&TEXTMETRIC)
+
+    ;-- Convert em height to point size
+    l_Size:=Round((NumGet(TEXTMETRIC,0,"Int")-NumGet(TEXTMETRIC,12,"Int"))*72/l_LogPixelsY)
+        ;-- (Height - Internal Leading) * 72 / LogPixelsY
+
+    ;-- Release the objects needed by the GetTextMetrics function
+    DllCall("SelectObject","Ptr",hDC,"Ptr",old_hFont)
+        ;-- Necessary to avoid memory leak
+
+    DllCall("ReleaseDC","Ptr",HWND_DESKTOP,"Ptr",hDC)
+
+    ;-- Return to sender
+    Return l_Size
+}
+
+
 Fnt_CreateFont(p_Name:="",p_Options:="") {
     Static Dummy34361446
 
@@ -660,6 +773,11 @@ Fnt_CreateFont(p_Name:="",p_Options:="") {
 
           ;-- Font family
           ,FF_DONTCARE  :=0x0
+          ,FF_ROMAN     :=0x1
+          ,FF_SWISS     :=0x2
+          ,FF_MODERN    :=0x3
+          ,FF_SCRIPT    :=0x4
+          ,FF_DECORATIVE:=0x5
 
           ;-- Font pitch
           ,DEFAULT_PITCH :=0
@@ -686,8 +804,8 @@ Fnt_CreateFont(p_Name:="",p_Options:="") {
 
     ;-- If both parameters are null or unspecified, return the handle to the
     ;   default GUI font.
-    if (p_Name="")
-       Return DllCall("GetStockObject","Int",DEFAULT_GUI_FONT)
+    if (p_Name="" and p_Options="")
+        Return DllCall("GetStockObject","Int",DEFAULT_GUI_FONT)
 
     ;-- Initialize options
     o_Height   :=""             ;-- Undefined
@@ -700,40 +818,76 @@ Fnt_CreateFont(p_Name:="",p_Options:="") {
 
     ;-- Extract options (if any) from p_Options
     Loop Parse,p_Options,%A_Space%
-    {
+        {
         if A_LoopField is Space
             Continue
 
         if (SubStr(A_LoopField,1,4)="bold")
             o_Weight:=1000
+        else if (SubStr(A_LoopField,1,6)="italic")
+            o_Italic:=True
+        else if (SubStr(A_LoopField,1,4)="norm")
+            {
+            o_Italic   :=False
+            o_Strikeout:=False
+            o_Underline:=False
+            o_Weight   :=FW_DONTCARE
+            }
+        else if (A_LoopField="-s")
+            o_Size:=0
+        else if (SubStr(A_LoopField,1,6)="strike")
+            o_Strikeout:=True
+        else if (SubStr(A_LoopField,1,9)="underline")
+            o_Underline:=True
+        else if (SubStr(A_LoopField,1,1)="h")
+            {
+            o_Height:=SubStr(A_LoopField,2)
+            o_Size  :=""  ;-- Undefined
+            }
         else if (SubStr(A_LoopField,1,1)="q")
             o_Quality:=SubStr(A_LoopField,2)
         else if (SubStr(A_LoopField,1,1)="s")
+            {
             o_Size  :=SubStr(A_LoopField,2)
+            o_Height:=""  ;-- Undefined
+            }
         else if (SubStr(A_LoopField,1,1)="w")
             o_Weight:=SubStr(A_LoopField,2)
-    }
+        }
 
     ;----------------------------------
     ;-- Convert/Fix invalid or
     ;-- unspecified parameters/options
     ;----------------------------------
     if p_Name is Space
-        p_Name:="Arial"   ;-- Font name of the default GUI font
+        p_Name:=Fnt_GetFontName()   ;-- Font name of the default GUI font
+
+    if o_Height is not Integer
+        o_Height:=""                ;-- Undefined
 
     if o_Quality is not Integer
         o_Quality:=PROOF_QUALITY    ;-- AutoHotkey default
+
+    if o_Size is Space              ;-- Undefined
+        o_Size:=Fnt_GetFontSize()   ;-- Font size of the default GUI font
+     else
+        if o_Size is not Integer
+            o_Size:=""              ;-- Undefined
+         else
+            if (o_Size=0)
+                o_Size:=""          ;-- Undefined
 
     if o_Weight is not Integer
         o_Weight:=FW_DONTCARE       ;-- A font with a default weight is created
 
     ;-- If needed, convert point size to em height
-    if o_Size is Integer    ;-- Allows for a negative size (emulates AutoHotkey)
-    {
-        hDC:=DllCall("CreateDC","Str","DISPLAY","Ptr",0,"Ptr",0,"Ptr",0)
-        o_Height:=-Round(o_Size*DllCall("GetDeviceCaps","Ptr",hDC,"Int",LOGPIXELSY)/72)
-        DllCall("DeleteDC","Ptr",hDC)
-    } Else o_Size:=""              ;-- Undefined
+    if o_Height is Space        ;-- Undefined
+        if o_Size is Integer    ;-- Allows for a negative size (emulates AutoHotkey)
+            {
+            hDC:=DllCall("CreateDC","Str","DISPLAY","Ptr",0,"Ptr",0,"Ptr",0)
+            o_Height:=-Round(o_Size*DllCall("GetDeviceCaps","Ptr",hDC,"Int",LOGPIXELSY)/72)
+            DllCall("DeleteDC","Ptr",hDC)
+            }
 
     if o_Height is not Integer
         o_Height:=0                 ;-- A font with a default height is created
@@ -755,8 +909,9 @@ Fnt_CreateFont(p_Name:="",p_Options:="") {
         ,"UInt",(FF_DONTCARE<<4)|DEFAULT_PITCH          ;-- fdwPitchAndFamily
         ,"Str",SubStr(p_Name,1,31))                     ;-- lpszFace
 
-    Return hFont
+  Return hFont
 }
+
 
 Fnt_DeleteFont(hFont) {
     If !hFont  ;-- Zero or null
@@ -773,14 +928,14 @@ calcScreenLimits(whichHwnd:="main") {
        Return prevActiveMon
 
     whichHwnd := (whichHwnd="main") ? PVhwnd : whichHwnd
-    If whichHwnd
-    {
-       hMon := MDMF_FromHWND(whichHwnd, 2)
-       WinGetPos, mainX, mainY,, , ahk_id %whichHwnd%
-    } Else If (whichHwnd="mouse")
+    If (whichHwnd="mouse")
     {
        GetPhysicalCursorPos(mainX, mainY)
        hMon := MDMF_FromPoint(mainX, mainY, 2)
+    } Else
+    {
+       hMon := MDMF_FromHWND(whichHwnd, 2)
+       WinGetPos, mainX, mainY,, , ahk_id %whichHwnd%
     }
 
     If hMon
@@ -966,6 +1121,7 @@ GetPhysicalCursorPos(ByRef mX, ByRef mY) {
     Return
 }
 
+
 ; ==========================================================================================================
 ; Multiple Display Monitors Functions -> msdn.microsoft.com/en-us/library/dd145072(v=vs.85).aspx
 ; by 'just me'
@@ -1106,3 +1262,4 @@ MDMF_GetInfo(HMON) {
             , Primary:   NumGet(MIEX, 36, "UInt")} ; contains a non-zero value for the primary monitor.
    Return False
 }
+
