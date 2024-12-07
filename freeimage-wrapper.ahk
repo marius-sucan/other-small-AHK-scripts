@@ -8,6 +8,9 @@
 ; Change log:
 ; =============================
 ;
+; 07 December 2024 - v1.9
+; - implemented more functions ; FreeImage_AllocateEx() and FreeImage_FillBackground()
+;
 ; 27 October 2023 - v1.8
 ; - implemented more functions
 ;
@@ -155,7 +158,7 @@ FreeImage_GetVersion() {
 }
 
 FreeImage_GetLibVersion() {
-   Return 1.8 ;  27/10/2023
+   Return 1.81 ;  samedi 7 décembre 2024
 }
 
 FreeImage_GetCopyrightMessage() {
@@ -168,6 +171,21 @@ FreeImage_GetCopyrightMessage() {
 FreeImage_Allocate(width, height, bpp:=32, red_mask:=0xFF000000, green_mask:=0x00FF0000, blue_mask:=0x0000FF00) {
 ; function useful to create a new / empty bitmap
    Return DllCall(getFIMfunc("Allocate"), "int", width, "int", height, "int", bpp, "uint", red_mask, "uint", green_mask, "uint", blue_mask, "uptr")
+}
+
+FreeImage_AllocateEx(width, height, bpp:=32, RGBArray:="255,255,255,0", options:=1, red_mask:=0xFF000000, green_mask:=0x00FF0000, blue_mask:=0x0000FF00, hPalette:=0) {
+; function useful to create a new / empty bitmap
+   If (RGBArray!="")
+   {
+      RGBA := StrSplit(RGBArray, ",")
+      VarSetCapacity(RGBQUAD, 4, 0)
+      NumPut(RGBA[3], RGBQUAD, 0, "UChar")
+      NumPut(RGBA[2], RGBQUAD, 1, "UChar")
+      NumPut(RGBA[1], RGBQUAD, 2, "UChar")
+      NumPut(RGBA[4], RGBQUAD, 3, "UChar")
+   } else RGBQUAD := 0
+
+   Return DllCall(getFIMfunc("AllocateEx"), "int", width, "int", height, "int", bpp, "UInt", &RGBQUAD, "int", options, "uint", hPalette, "uint", red_mask, "uint", green_mask, "uint", blue_mask, "uptr")
 }
 
 FreeImage_Load(ImgPath, GFT:=-1, flag:=0, ByRef dGFT:=0) {
@@ -427,6 +445,28 @@ FreeImage_SetBackgroundColor(hImage, RGBArray:="255,255,255,0") {
       NumPut(RGBA[4], RGBQUAD, 3, "UChar")
    } else RGBQUAD := 0
    Return DllCall(getFIMfunc("SetBackgroundColor"), "uptr", hImage, "UInt", &RGBQUAD)
+}
+
+FreeImage_FillBackground(hImage, RGBArray:="255,255,255,0", options:=1, applyAlpha:=0) {
+; applyAlpha  - for 32-bits RGBA, sets the alpha channel to specified value, must be above 0.
+; options     - it affect the color search process for palletized images.
+;   FI_COLOR_IS_RGB_COLOR     = 0   // RGBQUAD color is a RGB color (contains no valid alpha channel)
+;   FI_COLOR_IS_RGBA_COLOR    = 1   // RGBQUAD color is a RGBA color (contains a valid alpha channel)
+;   FI_COLOR_FIND_EQUAL_COLOR = 2   // For palettized images: lookup equal RGB color from palette
+;   FI_COLOR_ALPHA_IS_INDEX   = 4   // The color's rgbReserved member (alpha) contains the palette index to be used
+
+   If (RGBArray!="")
+   {
+      RGBA := StrSplit(RGBArray, ",")
+      VarSetCapacity(RGBQUAD, 4, 0)
+      NumPut(RGBA[3], RGBQUAD, 0, "UChar")
+      NumPut(RGBA[2], RGBQUAD, 1, "UChar")
+      NumPut(RGBA[1], RGBQUAD, 2, "UChar")
+      NumPut(RGBA[4], RGBQUAD, 3, "UChar")
+      If (applyAlpha=-1)
+         applyAlpha := RGBA[4]
+   } else RGBQUAD := 0
+   Return DllCall(getFIMfunc("FillBackground"), "uptr", hImage, "UInt", &RGBQUAD, "int", options, "int", applyAlpha)
 }
 
 ; === File type functions ===
