@@ -47,23 +47,31 @@
 ;    source: http://www.autohotkey.net/~linpinger/index.html
 
 
-FreeImage_FoxInit(isInit:=1, bonusPath:=0) {
+FreeImage_FoxInit(isInit:=1, bonusPath:=0, DllName:="FreeImage.dll") {
    Static hFIDll
+   Static lastDllName
+   If (isInit="lastDllName")
+      Return lastDllName
+
+   If !DllName
+      DllName := "FreeImage.dll"
+
    ; if you change the dll name, getFIMfunc() needs to reflect this
    If RegExMatch(bonusPath, "i)(.\.dll)$")
       DllPath := bonusPath
    Else
-      DllPath := FreeImage_FoxGetDllPath("freeimage.dll", bonusPath)
+      DllPath := FreeImage_FoxGetDllPath(DllName, Trim(bonusPath, "\"))
 
    If !DllPath
       Return "err - 404"
 
+   lastDllName := SubStr(DllPath, InStr(DllPath, "\", 0, -1) + 1)
    If (isInit=1)
       hFIDll := DllCall("LoadLibraryW", "WStr", DllPath, "uptr")
    Else
       DllCall("FreeLibrary", "UInt", hFIDll)
 
-   ; ToolTip, % DllPath "`n" hFIDll , , , 2
+   ; ToolTip, % lastDllName "|" DllPath "`n" hFIDll "|" FreeImage_GetVersion() , , , 2
    If (isInit=1 && !hFIDll)
       Return "err - " A_LastError
 
@@ -232,6 +240,10 @@ FreeImage_UnLoad(hImage) {
 ; === Bitmap information functions ===
 ; missing functions: GetThumbnail and SetThumbnail.
 
+FreeImage_GetPixelFormat(hImage, humanReadable:=0) {
+   Return FreeImage_GetImageType(hImage, humanReadable)
+}
+
 FreeImage_GetImageType(hImage, humanReadable:=0) {
 ; Possible return values [FREE_IMAGE_TYPE enumeration]:
 ; 0 = FIT_UNKNOWN ;   Unknown format (returned value only, never use it as input value for other functions)
@@ -282,6 +294,9 @@ FreeImage_GetHistogram(hImage, channel, ByRef histoArray) {
 }
 
 FreeImage_GetBPP(hImage) {
+   If (hImage="")
+      Return
+
    Return DllCall(getFIMfunc("GetBPP"), "uptr", hImage)
 }
 
@@ -294,6 +309,9 @@ FreeImage_GetHeight(hImage) {
 }
 
 FreeImage_GetImageDimensions(hImage, ByRef imgW, ByRef imgH) {
+   If (hImage="")
+      Return
+
    imgH := FreeImage_GetHeight(hImage)
    imgW := FreeImage_GetWidth(hImage)
 }
@@ -321,7 +339,7 @@ FreeImage_GetDIBSize(hImage) {
 }
 
 FreeImage_GetMemorySize(hImage) {
-; returns a value in bytes
+; returns a value in bytes; it is higher than DIB size
    Return DllCall(getFIMfunc("GetMemorySize"), "uptr", hImage, "uint")
 }
 
@@ -367,7 +385,7 @@ FreeImage_GetInfo(hImage) {
 FreeImage_GetColorType(hImage, humanReadable:=1) {
 ; FREE_IMAGE_COLOR_TYPE enumeration:
 ; 0 = MINISWHITE  - Monochrome bitmap (1-bit) : first palette entry is white. Palletised bitmap (4 or 8-bit) - the bitmap has an inverted greyscale palette
-; 1 = MINISBLACK  - Monochrome bitmap (1-bit) : first palette entry is black. Palletised bitmap (4 or 8-bit) and single - channel non-standard bitmap: the bitmap has a greyscale palette
+; 1 = MINISBLACK  - Monochrome bitmap (1-bit) : first palette entry is black. Palletised bitmap (4 or 8-bit) and single channel non-standard bitmap: the bitmap has a greyscale palette
 ; 2 = RGB         - High-color bitmap (16, 24 or 32 bit), RGB16 or RGBF
 ; 3 = PALETTE     - Palettized bitmap (1, 4 or 8 bit)
 ; 4 = RGBALPHA    - High-color bitmap with an alpha channel (32 bit bitmap, RGBA16 or RGBAF)
@@ -1221,7 +1239,8 @@ getFIMfunc(funct) {
       Else If (funct="RotateEx")
          fSuffix := "@48"
    }
-   funct := "FreeImage\" fPrefix funct fSuffix
+
+   funct := FreeImage_FoxInit("lastDllName") "\" fPrefix funct fSuffix
    Return funct
 }
 
@@ -1293,11 +1312,12 @@ ConvertAdvancedFIMtoPBITMAP(hFIFimgA, doFlip) {
   }
 }
 
-ConvertPBITMAPtoFIM(pBitmap, do24bits:=0) {
+ConvertPBITMAPtoFIM(pBitmap, doLowerbits:=0) {
 ; Please provide a 32 RGBA image format GDI+ object.
-; To provide a 24-RGB image, use do24bits=1.
+; To provide a 24-RGB image, use doLowerbits=1.
 ; This function relies on the GDI+ AHK library.
-;
+; For a 16 bits (16-RGB-555) image, use doLowerbits=2.
+
 ; If succesful, the function returns a FreeImage image object
 ; created from pBitmap [GDI+ image object].
 
@@ -1306,10 +1326,16 @@ ConvertPBITMAPtoFIM(pBitmap, do24bits:=0) {
        , blueMASK  := "0x000000FF" ; FI_RGBA_BLUE_MASK;
 
   Gdip_GetImageDimensions(pBitmap, imgW, imgH)
-  pixelFormat := (do24bits=1) ? "0x21808" : "0x26200A"
-  bitsDepth := (do24bits=1) ? 24 : 32
+  pixelFormat := (doLowerbits=1) ? "0x21808" : "0x26200A"
+  bitsDepth := (doLowerbits=1) ? 24 : 32
+  If (doLowerbits=2)
+  {
+     pixelFormat := "0x21005"
+     bitsDepth := 16
+  }
+
   E := Gdip_LockBits(pBitmap, 0, 0, imgW, imgH, Stride, Scan0, BitmapData, 1, pixelFormat)
-  ; fnOutputDebug(A_ThisFunc "|" pixelFormat "|" bitsDepth "|" do24bits)
+  ; fnOutputDebug(A_ThisFunc "|" pixelFormat "|" bitsDepth "|" doLowerbits)
   IF !E
   {
      hFIFimgA := FreeImage_ConvertFromRawBits(Scan0, imgW, imgH, Stride, bitsDepth, redMASK, greenMASK, blueMASK, 1)
